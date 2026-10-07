@@ -2475,3 +2475,27 @@ body.j3-sayfa {
 @media (min-width: 961px) {
   .tema-j .jp-hero > img { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12%, #000 88%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 12%, #000 88%, transparent 100%); }
 }
+
+/* 90-j-mobil-duzeltme.css */
+/* Mobil çakışma düzeltmeleri (7 Ekim 2026). Kullanıcı telefondan: "üzerine binen buton, yazı ve iç içe geçmiş yazıları düzelt, 3 demoda da".
+   Telefonların yazı büyütme ayarı (%115-130) hesaba katılır; denetim: YAZI=1.15 node araclar/cakisma-tara.js j */
+
+@media (max-width: 1100px) {
+  /* "Üroloji Profesörü" başlığı masaüstü için tek satıra zorlanmıştı; dar sütunda zaman çizgisinin üstüne taşıyordu */
+  .tema-j .j-oz-giris h2 { white-space: normal; overflow-wrap: break-word; }
+}
+
+@media (max-width: 760px) {
+  .tema-j .j-oz-giris h2 { font-size: clamp(21px, 5.8vw, 24px); }
+
+  /* Akademik kimlik kutuları: ikon sayının üstünde, etiket kutu içinde kırılır ("h-indeksi" kutudan taşıyordu) */
+  .tema-j .j-metrik div, .tema-j .j-metrik div:nth-child(even) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; justify-items: center; row-gap: 3px; padding: 9px 4px 8px; text-align: center; }
+  .tema-j .j-metrik .jik { grid-column: 1; grid-row: 1; width: 22px; height: 22px; }
+  .tema-j .j-metrik dd { grid-column: 1; grid-row: 2; }
+  .tema-j .j-metrik dt { grid-column: 1; grid-row: 3; white-space: normal; overflow-wrap: anywhere; }
+
+  /* İletişim: bilgiler sağdaki hastane fotoğrafına uzanmaz */
+  .tema-j .j-ilt-serit { max-width: 56%; }
+  .tema-j .j-ilt-serit li { white-space: normal; overflow-wrap: anywhere; }
+  .tema-j .j-ilt-serit .j-ilt-yol { max-width: none; }
+}

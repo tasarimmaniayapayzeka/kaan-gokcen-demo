@@ -2609,3 +2609,22 @@ html:has(body.k-makale) { scroll-padding-top: calc(var(--k-ust-y) + 80px); }
   .tema-k *, .tema-k *::before, .tema-k *::after { animation: none !important; transition: none !important; }
   .tema-k .k-hero-bobrek-img { transform: none; filter: none; }
 }
+
+/* 90-k-mobil-duzeltme.css */
+/* Mobil çakışma düzeltmeleri (7 Ekim 2026). Kullanıcı telefondan: "üzerine binen buton, yazı ve iç içe geçmiş yazıları düzelt, 3 demoda da".
+   Telefonların yazı büyütme ayarı (%115-130) hesaba katılır; denetim: YAZI=1.15 node araclar/cakisma-tara.js k */
+
+@media (max-width: 767px) {
+  /* Giriş: slogan ve "Randevu ve iletişim" düğmesi hekimin yüzüne biniyordu. Tasarımdaki gibi düğme solda kalır,
+     yüz sağda başlar: düğme daralır, slogan sınırlanır, portre sağa yaklaşır */
+  .tema-k .k-hero-slogan { max-width: 54vw; }
+  .tema-k .k-hero-dg .k-dg-dolu { min-width: 0; max-width: 56vw; }
+  .tema-k .k-hero-dg .k-dg { padding: 0 12px; gap: 7px; }
+  .tema-k .k-hero-portre { right: 2vw; }
+  /* Hakkında 5'li kısayol: çok büyük yazı ayarında kelime hücreden taşmak yerine kırılır */
+  .tema-k .kh-kisayol b { overflow-wrap: anywhere; }
+}
+@media (max-width: 380px) {
+  .tema-k .k-hero-portre { right: -4vw; }
+  .tema-k .k-hero-dg .k-dg { padding: 0 10px; gap: 6px; }
+}

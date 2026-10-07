@@ -2307,3 +2307,23 @@ html:has(.i2-sekme) { scroll-padding-top: 150px; }
   .tema-i :is(.i-kat, .i-acilir li > a, .i-hizli a, .i-yazi-kart):is(:hover, :focus-visible, :focus-within) :is(.i-3d, .i-yazi-gorsel img),
   .tema-i :is(.i-hizli a, .i-yazi-kart):is(:hover, :focus-visible, :focus-within) { transform: none; }
 }
+
+/* 90-i-mobil-duzeltme.css */
+/* Mobil çakışma düzeltmeleri (7 Ekim 2026). Kullanıcı telefondan: "üzerine binen buton, yazı ve iç içe geçmiş yazıları düzelt, 3 demoda da".
+   Telefonların yazı büyütme ayarı (%115-130) hesaba katılır; denetim: YAZI=1.15 node araclar/cakisma-tara.js i */
+
+@media (max-width: 760px) {
+  /* Giriş: alt satır ve slogan hekimin yüzüne (ekranın ~%62'sinden sonrası) uzanmaz, gerekirse iki satıra iner */
+  .tema-i .i-hero-alt, .tema-i .i-hero-slogan { max-width: 58vw; white-space: normal; }
+  .tema-i .i-hero-dg .i-dg-dolu { max-width: 60vw; }
+
+  /* Muayene yeri ve iletişim satırı: üç öğe tek satıra sıkışıp birbirine biniyordu (telefon numarası e-posta ikonuna).
+     Mobilde alt alta, okunur boyda */
+  .tema-i .i-il-satir, .tema-i.i3 .i-il-satir { grid-template-columns: minmax(0, 1fr); gap: 12px 0; padding: 10px 0 16px; }
+  .tema-i .i-il-satir li, .tema-i .i-il-satir li + li { gap: 12px; padding-left: 0; }
+  .tema-i .i-il-satir .ik, .tema-i .i-il-satir li:nth-child(2) > .ik, .tema-i .i-il-satir li:first-child > .ik { flex: none; width: 22px; height: 22px; }
+  .tema-i .i-il-satir b, .tema-i .i-il-satir li:first-child b, .tema-i.i-hakkinda .i-il-satir li:nth-child(3) b, .tema-i.i3 .i-il-satir b { font-size: 15px; font-weight: 600; letter-spacing: 0; white-space: normal; overflow-wrap: anywhere; }
+  .tema-i .i-il-satir small { font-size: 13px; white-space: normal; }
+  .tema-i .i-il-satir li:last-child { min-height: 44px; margin-top: 2px; }
+  .tema-i .i-il-satir li:last-child b { font-size: 14px; }
+}
