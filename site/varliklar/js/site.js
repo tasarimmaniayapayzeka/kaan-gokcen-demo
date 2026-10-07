@@ -39,29 +39,7 @@
   if (megaLi) megaLi.addEventListener('mouseleave', function () { ust.classList.remove('mega-kapali'); });
   if (megaLi) megaLi.addEventListener('focusin', function () { ust.classList.remove('mega-kapali'); });
 
-  // Sekme / çapa çubuğu: görünürdeki bölümü vurgula
-  var cubuk = document.querySelector('[data-izle]');
-  if (!cubuk || !('IntersectionObserver' in window)) return;
-  var baglar = Array.prototype.slice.call(cubuk.querySelectorAll('a[href^="#"]'));
-  var hedefler = [];
-  baglar.forEach(function (a) {
-    var el = document.getElementById(a.getAttribute('href').slice(1));
-    if (el) hedefler.push({ el: el, a: a });
-  });
-  function isaretle(a) {
-    baglar.forEach(function (b) { b.classList.remove('etkin'); b.removeAttribute('aria-current'); });
-    a.classList.add('etkin');
-    a.setAttribute('aria-current', 'location');
-    var sol = a.offsetLeft - 16;
-    if (cubuk.scrollWidth > cubuk.clientWidth) cubuk.scrollTo({ left: sol, behavior: 'smooth' });
-  }
-  var io = new IntersectionObserver(function (girdiler) {
-    girdiler.forEach(function (g) {
-      if (!g.isIntersecting) return;
-      for (var i = 0; i < hedefler.length; i++) if (hedefler[i].el === g.target) isaretle(hedefler[i].a);
-    });
-  }, { rootMargin: '-150px 0px -55% 0px' });
-  hedefler.forEach(function (h) { io.observe(h.el); });
+  // Etkin bölüm işaretleme ve çapa kaydırma: varliklar/js/ortak/sekme-izle.js (bütün temalarda ortak, 7 Ekim 2026)
 })();
 
 ;
@@ -343,4 +321,164 @@
 
   // Tarayıcı geri geldiğinde kutuda kalan metne göre süz
   if (q.value) uygula();
+})();
+
+;
+/* sekme-izle.js */
+/* Sekme çubuğu ve "Bu sayfada" listeleri: etkin bölümün işaretlenmesi ve çapaya kaydırma. Bütün temalarda ortak (render.js her pakete ekler).
+   7 Ekim 2026, kullanıcı: "sekme kayma var, her iç sayfada kontrol et". Eski IntersectionObserver kodu yalnız başlık ekranın üst bandına
+   GİRERKEN sekmeyi değiştiriyordu; yukarı kaydırınca alttaki sekmede takılı kalıyordu. Burada etkin bölüm her kaydırmada konumdan hesaplanır:
+   sabit üst çubukların (başlık + sekme çubuğu) altındaki çizgiyi geçmiş son başlık etkindir. Çapaya atlayınca başlık bu çubukların hemen altına oturur. */
+(function () {
+  var d = document, kok = d.documentElement;
+  var adaylar = [].slice.call(d.querySelectorAll('[data-izle], [data-spy], .toc, .hap-sekme'));
+  // İç içe seçilmiş listelerden yalnız dıştaki kalır
+  adaylar = adaylar.filter(function (l) { return !adaylar.some(function (o) { return o !== l && o.contains(l); }); });
+  var listeler = [];
+  adaylar.forEach(function (l) {
+    var baglar = [], hedefler = [];
+    [].forEach.call(l.querySelectorAll('a[href^="#"]'), function (a) {
+      var id = a.getAttribute('href').slice(1);
+      try { id = decodeURIComponent(id); } catch (e) {}
+      var h = id && d.getElementById(id);
+      if (h) { baglar.push(a); hedefler.push(h); }
+    });
+    if (!baglar.length) return;
+    l.setAttribute('data-izleniyor', '');
+    listeler.push({ l: l, baglar: baglar, hedefler: hedefler, son: -1 });
+  });
+  if (!listeler.length) return;
+
+  // Ekranın üstüne yapışan çubukların (site başlığı, sekme çubuğu) alt kenarı. Yan sütundaki yapışkan kutular sayılmaz.
+  function yapisikAta(el) {
+    for (var e = el; e && e !== d.body && e !== kok; e = e.parentElement) {
+      var p = getComputedStyle(e).position;
+      if (p === 'sticky' || p === 'fixed') return e;
+    }
+    return null;
+  }
+  var cubuklar = [];
+  [].forEach.call(d.querySelectorAll('header, nav'), function (e) { if (!e.closest('main article, .makale-govde')) cubuklar.push(e); });
+  listeler.forEach(function (k) { cubuklar.push(k.l); });
+  function ustPay() {
+    var alt = 0, gorulen = [];
+    cubuklar.forEach(function (e) {
+      var s = yapisikAta(e);
+      if (!s || gorulen.indexOf(s) > -1) return;
+      gorulen.push(s);
+      if (s.offsetWidth < window.innerWidth * 0.6 || s.offsetHeight > window.innerHeight * 0.4) return;
+      var r = s.getBoundingClientRect();
+      if (r.bottom <= 1 || getComputedStyle(s).visibility === 'hidden') return; // gizlenmiş başlık
+      var cs = getComputedStyle(s);
+      if (cs.position === 'sticky' && cs.top === 'auto') return; // alta yapışan çubuk
+      var ust = cs.position === 'fixed' ? r.top : (parseFloat(cs.top) || 0);
+      if (ust > 200) return; // ekranın altındaki sabit çubuklar (mobil arama/iletişim şeridi)
+      alt = Math.max(alt, ust + r.height);
+    });
+    return Math.round(alt);
+  }
+
+  var pay = -1, kilit = null;
+  function guncelle() {
+    var p = ustPay();
+    if (p !== pay) { pay = p; kok.style.scrollPaddingTop = (pay + 16) + 'px'; }
+    var cizgi = pay + 32;
+    var sonda = window.innerHeight + window.scrollY >= kok.scrollHeight - 4;
+    listeler.forEach(function (k) {
+      // Liste sırasına değil sayfadaki konuma bakılır: çizgiyi geçmiş başlıklardan en alttaki etkindir
+      var ust = k.hedefler.map(function (h) { return h.getBoundingClientRect().top; });
+      var etkin = -1, enAlt = -Infinity, enUstte = 0;
+      for (var i = 0; i < ust.length; i++) {
+        // Yan yana (aynı hizadaki) bölümlerde o an etkin olan korunur
+        if (ust[i] <= cizgi && (ust[i] > enAlt + 1 || (Math.abs(ust[i] - enAlt) <= 1 && i === k.son))) { enAlt = Math.max(enAlt, ust[i]); etkin = i; }
+        if (ust[i] < ust[enUstte]) enUstte = i;
+      }
+      if (etkin < 0) etkin = enUstte;
+      // Sayfanın sonunda çizgiye ulaşamayan son bölümler: ekranda görünen en alttaki başlık
+      if (sonda) for (var j = 0; j < ust.length; j++) if (ust[j] > ust[etkin] && ust[j] < window.innerHeight - 40 && (etkin < 0 || ust[j] > enAlt)) { enAlt = ust[j]; etkin = j; }
+      if (kilit && kilit.k === k) etkin = kilit.i;
+      if (etkin === k.son) return;
+      k.son = etkin;
+      k.baglar.forEach(function (a, i) {
+        a.classList.toggle('etkin', i === etkin);
+        if (i === etkin) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current');
+      });
+      // Yatay kayan çubukta etkin sekmeyi görünür tut (yalnız çubuk kayar)
+      var a = k.baglar[etkin];
+      for (var kap = a.parentElement; kap && kap !== k.l.parentElement; kap = kap.parentElement) {
+        if (kap.scrollWidth > kap.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(kap).overflowX)) {
+          var r = a.getBoundingClientRect(), u = kap.getBoundingClientRect();
+          if (r.left < u.left + 8 || r.right > u.right - 8) {
+            var hedef = kap.scrollLeft + r.left - u.left - 16;
+            if (kap.scrollTo) kap.scrollTo({ left: hedef, behavior: 'smooth' }); else kap.scrollLeft = hedef;
+          }
+          break;
+        }
+      }
+    });
+  }
+
+  // Hedefin belge içindeki yerleşim konumu. getBoundingClientRect yerine offsetTop: belirme efektlerinin
+  // translate kayması hesaba girmez (tarayıcının kendi çapa atlaması efektli başlığı 20 px kadar çubuğun altına sokuyordu).
+  function belgeUst(el) { var y = 0; for (var e = el; e; e = e.offsetParent) y += e.offsetTop; return y; }
+  var yumusak = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function git(h, davranis) {
+    pay = ustPay(); kok.style.scrollPaddingTop = (pay + 16) + 'px';
+    window.scrollTo({ top: Math.max(0, belgeUst(h) - pay - 16), behavior: davranis });
+  }
+
+  // Tıklanan sekme, kaydırma durana ve ardından kullanıcı sayfayı kendisi kaydırana kadar etkin kalır
+  var durdu = null;
+  function kaydirmaBitti() {
+    durdu = null;
+    if (!kilit) return;
+    if (kilit.y == null) {
+      // Kayarken boyu değişen görseller olduysa son bir düzeltme
+      var fark = belgeUst(kilit.h) - pay - 16 - window.scrollY;
+      if (Math.abs(fark) > 3 && !(fark > 0 && window.innerHeight + window.scrollY >= kok.scrollHeight - 2)) window.scrollTo({ top: window.scrollY + fark, behavior: 'instant' });
+      kilit.y = window.scrollY;
+    }
+  }
+  listeler.forEach(function (k) {
+    k.baglar.forEach(function (a, i) {
+      a.addEventListener('click', function (e) {
+        if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        var h = k.hedefler[i];
+        kilit = { k: k, i: i, h: h, y: null };
+        if (location.hash !== '#' + h.id && history.pushState) history.pushState(null, '', '#' + h.id);
+        git(h, yumusak ? 'smooth' : 'auto');
+        // Klavye ve ekran okuyucu için odak başlığa geçer; başlık etkileşimli olmadığından odak çerçevesi gösterilmez
+        if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
+        h.style.outline = 'none';
+        h.addEventListener('blur', function () { h.style.outline = ''; }, { once: true });
+        h.focus({ preventScroll: true });
+        clearTimeout(durdu); durdu = setTimeout(kaydirmaBitti, 180);
+        guncelle();
+      });
+    });
+  });
+  function birak() { if (kilit) { kilit = null; guncelle(); } }
+  ['wheel', 'touchstart'].forEach(function (t) { window.addEventListener(t, birak, { passive: true }); });
+  window.addEventListener('keydown', function (e) { if (/^(Arrow|Page|Home|End| )/.test(e.key)) birak(); });
+
+  var bekliyor = false;
+  function istek() {
+    if (kilit) {
+      // Kaydırma durduktan sonra 40 px'ten fazla uzaklaşıldıysa (kaydırma çubuğu, betik) kilit bırakılır
+      if (kilit.y != null && Math.abs(window.scrollY - kilit.y) > 40) kilit = null;
+      else { clearTimeout(durdu); durdu = setTimeout(kaydirmaBitti, 180); }
+    }
+    if (!bekliyor) { bekliyor = true; requestAnimationFrame(function () { bekliyor = false; guncelle(); }); }
+  }
+  window.addEventListener('scroll', istek, { passive: true });
+  window.addEventListener('resize', istek);
+  window.addEventListener('load', istek);
+  window.addEventListener('popstate', function () { var h = location.hash.length > 1 && d.getElementById(decodeURIComponent(location.hash.slice(1))); if (h) git(h, 'auto'); });
+  guncelle();
+  // Sayfa bir çapayla açıldıysa, pay hesaplandıktan sonra başlığı doğru yere getir
+  if (location.hash.length > 1) {
+    var h0 = d.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (h0) setTimeout(function () { git(h0, 'auto'); }, 60);
+  }
 })();
