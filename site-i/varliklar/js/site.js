@@ -424,3 +424,103 @@
   uygula();
   if (dar.addEventListener) dar.addEventListener('change', uygula); else if (dar.addListener) dar.addListener(uygula);
 })();
+
+;
+/* 40-i-efekt.js */
+/* Tema I · Petrol: kaydırınca belirme ve metrik sayaçları (7 Ekim 2026, web/temalar/GORSEL-EFEKT-SARTNAME.md).
+   Harici kütüphane yok (IntersectionObserver). Yalnız ilk ekranın ALTINDAKİ öğeler gizlenir (görünürdekiler titremesin);
+   JS yoksa ya da hareket azaltma açıksa hiçbir şey gizlenmez ve rakamlar baştan doğru görünür. CSS: css/80-i-efekt.css */
+(function () {
+  var govde = document.body;
+  if (!govde || !govde.classList.contains('tema-i') || !('IntersectionObserver' in window)) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  var $$ = function (s, k) { return Array.prototype.slice.call((k || document).querySelectorAll(s)); };
+  var ekranAlti = function (el) { var r = el.getBoundingClientRect(); return r.top > window.innerHeight * 0.92; };
+
+  // Metrik sayacı: 0'dan hedefe, ease-out, 1,2-1,6 sn; sayı biçimi (ön ek, binlik nokta, son ek) korunur
+  var sayac = function (el, bekle) {
+    if (el.getAttribute('data-i-sayildi')) return;
+    el.setAttribute('data-i-sayildi', '1');
+    var hedef = el.textContent;
+    var m = hedef.match(/^(\D*)(\d[\d.]*)(.*)$/);
+    if (!m) return;
+    var son = parseInt(m[2].replace(/\./g, ''), 10);
+    if (!(son > 0)) return;
+    var noktali = m[2].indexOf('.') > -1;
+    var bicim = function (v) { return noktali ? v.toLocaleString('tr-TR') : String(v); };
+    var sure = 1200 + Math.min(400, son * 2);
+    var t0 = null;
+    el.style.fontVariantNumeric = 'tabular-nums';
+    el.style.minWidth = el.getBoundingClientRect().width + 'px';
+    el.textContent = m[1] + bicim(0) + m[3];
+    el.setAttribute('aria-label', hedef);
+    var adim = function (t) {
+      if (t0 === null) t0 = t;
+      var p = Math.min(1, (t - t0) / sure);
+      var e = 1 - Math.pow(1 - p, 3);
+      el.textContent = p < 1 ? m[1] + bicim(Math.round(son * e)) + m[3] : hedef;
+      if (p < 1) window.requestAnimationFrame(adim); else el.removeAttribute('aria-label');
+    };
+    window.setTimeout(function () { window.requestAnimationFrame(adim); }, bekle || 0);
+  };
+
+  var gozcu = new IntersectionObserver(function (girisler) {
+    girisler.forEach(function (g) {
+      if (!g.isIntersecting) return;
+      var el = g.target;
+      gozcu.unobserve(el);
+      if (el.hasAttribute('data-i-sayac')) { sayac(el, el.__iBekle); return; }
+      el.classList.add('i-gor');
+      (el.__iCocuk || []).forEach(function (c) { c.classList.add('i-gor'); });
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+
+  // 1) Tekil öğeler: bölüm başlıkları, metin blokları, kartlar (yukarı kayarak belirir)
+  var TEK = [
+    '.i-bas-satir', '.i-ikili .i-ust-etiket', '.i-ikili h2', '.i-ozg-metin', '.i-ak-metin', '.i-kaynak', '.i-ak-alt', '.i2-alt-bas',
+    '.i-il-metin', '.i2-ozet', '.i2-icindekiler', '.i2-sss', '.i2-kaynakca', '.i2-ttb', '.i3-dz-arac'
+  ].join(',');
+  $$(TEK).forEach(function (el) {
+    if (!ekranAlti(el) || el.closest('.i-gz, .i-gz-k')) return;
+    el.classList.add('i-gz');
+    gozcu.observe(el);
+  });
+
+  // 2) Gruplar: kapsayıcı görününce çocuklar sırayla (60-90 ms aralık)
+  var GRUP = [
+    ['.i-kat-izgara', ':scope > li', 75],
+    ['.i-yazi-izgara', ':scope > li', 90],
+    ['.i-il-satir', ':scope > li', 70],
+    ['.i2-ray-ic', ':scope > *', 120],
+    ['.i2-liste', ':scope > li', 60]
+  ];
+  GRUP.forEach(function (gr) {
+    $$(gr[0]).forEach(function (kap) {
+      if (!ekranAlti(kap)) return;
+      var cocuk = $$(gr[1], kap);
+      cocuk.forEach(function (c, i) { c.classList.add('i-gz'); c.style.setProperty('--i-gec', Math.min(i, 8) * gr[2] + 'ms'); });
+      kap.__iCocuk = cocuk;
+      gozcu.observe(kap);
+    });
+  });
+
+  // 3) Kapsayıcı efektleri (CSS çocukları canlandırır): zaman çizgisi, metrikler, dergi görseli, petrol bant, iletişim fotoğrafı
+  var KAP = [['.i-zaman', 180], ['.i-metrik', 90], ['.i-ak-gorsel', 0], ['.i-holep', 0], ['.i-il-ust', 0]];
+  KAP.forEach(function (k) {
+    $$(k[0]).forEach(function (kap) {
+      if (!ekranAlti(kap)) return;
+      kap.classList.add('i-gz-k');
+      if (k[1]) $$(':scope > li', kap).forEach(function (li, i) { li.style.setProperty('--i-gec', (250 + i * k[1]) + 'ms'); });
+      gozcu.observe(kap);
+    });
+  });
+
+  // 4) Metrik sayaçları: görünür olduklarında (ilk ekranda olsalar da) 0'dan sayar
+  $$('[data-i-sayac]').forEach(function (el) {
+    var li = el.closest('li');
+    var gec = li ? parseInt(li.style.getPropertyValue('--i-gec'), 10) : 0;
+    el.__iBekle = gec > 0 ? gec + 150 : 0;
+    gozcu.observe(el);
+  });
+})();

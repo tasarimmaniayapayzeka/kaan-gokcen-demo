@@ -416,3 +416,90 @@
     }
   });
 })();
+
+;
+/* 80-j-hareket.js */
+/* Tema J · kaydırınca belirme, bölüm içi hareketler ve sayaçlar (7 Ekim 2026, GORSEL-EFEKT-SARTNAME §4). Kütüphane yok.
+   Yalnız ekranın ALTINDA kalan öğeler gizlenir (ilk ekranda görünen hiçbir şey kaybolup yeniden gelmez); JS yoksa ya da
+   "hareketi azalt" açıksa hiçbir sınıf eklenmez, sayılar baştan son değeriyle durur. Her öğe bir kez belirir. */
+(function () {
+  var kok = document.documentElement;
+  var azalt = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (azalt || !('IntersectionObserver' in window) || !document.body || !document.body.classList.contains('tema-j')) return;
+
+  // Kaydırınca yukarı kayarak belirenler (aynı kaptaki kardeşler 80 ms arayla)
+  var BELIR = [
+    '.j-bas-satir', '.j-hizli-l > li', '.j-alan-l > li', '.j-holep', '.j-oz-ic > *', '.j-yazi-l > li', '.j-ilt-ic > *',
+    '.jm-ilgili > .jm-bolum-bas', '.jm-ilgili > a', '.jm-govde > .jm-kutu',
+    '.j3-section-heading', '.j3-group-card', '.j3-category-intro', '.j3-category-articles > a', '.j3-guide-list > a', '.j3-guide-intro > *', '.j3-category-faq',
+    '.jp-icerik > *', '.jp-akademik > *', '.jp-medya > *', '.jp-iletisim > *'
+  ].join(',');
+  // Bölüm içi hareketler: zaman çizgisi, metrik ikonları, portre ve fotoğraf yakınlaşması, sayaçlar
+  var BEKLE = '.j-oz, .j-ilt, .jp-icerik-cizgili';
+
+  var altta = function (el) { return el.getBoundingClientRect().top > (window.innerHeight || kok.clientHeight) - 10; };
+
+  // ---------- Sayaçlar ----------
+  var sayac = function (el) {
+    var son = (el.textContent || '').trim();
+    var m = son.match(/^(\D*)(\d[\d.,]*)(\D*)$/);
+    if (!m) return;
+    var hedef = parseInt(m[2].replace(/[.,]/g, ''), 10);
+    if (!hedef) return;
+    var noktali = /[.,]/.test(m[2]);
+    var yaz = function (n) { el.textContent = m[1] + (noktali ? n.toLocaleString('tr-TR') : String(n)) + m[3]; };
+    el.style.minWidth = Math.ceil(el.getBoundingClientRect().width) + 'px';
+    el.setAttribute('aria-label', son);
+    var sure = 1200 + Math.min(400, hedef * 2);
+    var bas = null;
+    yaz(0);
+    var adim = function (t) {
+      if (bas === null) bas = t;
+      var p = Math.min(1, (t - bas) / sure);
+      var e = 1 - Math.pow(1 - p, 3);
+      if (p < 1) { yaz(Math.round(hedef * e)); window.requestAnimationFrame(adim); }
+      else { el.textContent = son; el.removeAttribute('aria-label'); el.style.minWidth = ''; }
+    };
+    return function () { window.requestAnimationFrame(adim); };
+  };
+
+  var izleyici = new IntersectionObserver(function (girdiler) {
+    girdiler.forEach(function (g) {
+      if (!g.isIntersecting) return;
+      var el = g.target;
+      izleyici.unobserve(el);
+      if (el.classList.contains('j-gz')) {
+        el.classList.remove('j-gz');
+        var gecikme = (parseInt(el.style.getPropertyValue('--j-sira'), 10) || 0) * 80;
+        window.setTimeout(function () { el.classList.remove('j-gc'); el.style.removeProperty('--j-sira'); }, 900 + gecikme);
+      }
+      if (el.classList.contains('j-bekle')) {
+        el.classList.remove('j-bekle');
+        (el._jSay || []).forEach(function (f) { window.setTimeout(f, 250); });
+      }
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+
+  // Belirenler: kaptaki sırası (en çok 6 adım)
+  var sira = typeof WeakMap === 'function' ? new WeakMap() : null;
+  Array.prototype.forEach.call(document.querySelectorAll(BELIR), function (el) {
+    if (!altta(el) || el.closest('[hidden]')) return;
+    var ust = el.parentNode;
+    var i = 0;
+    if (sira) { i = sira.get(ust) || 0; sira.set(ust, i + 1); }
+    el.style.setProperty('--j-sira', String(Math.min(i, 5)));
+    el.classList.add('j-gc', 'j-gz');
+    izleyici.observe(el);
+  });
+  // Bölüm içi hareketler ve sayaçlar
+  Array.prototype.forEach.call(document.querySelectorAll(BEKLE), function (el) {
+    if (!altta(el)) return;
+    el._jSay = [];
+    Array.prototype.forEach.call(el.querySelectorAll('[data-j-say]'), function (d) {
+      var f = sayac(d);
+      if (f) el._jSay.push(f);
+    });
+    el.classList.add('j-bekle');
+    izleyici.observe(el);
+  });
+})();

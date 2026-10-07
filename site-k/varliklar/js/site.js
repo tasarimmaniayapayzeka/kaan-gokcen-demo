@@ -391,3 +391,98 @@
     acilir.addEventListener('focusin', function () { ust.classList.remove('acilir-kapali'); });
   }
 })();
+
+;
+/* 80-k-efekt.js */
+/* Tema K · kaydırınca belirme, zaman çizgisi, metrik sayaçları (GORSEL-EFEKT-SARTNAME, 7 Ekim 2026).
+   IntersectionObserver, harici kütüphane yok. Hareket azaltılmışsa ya da IO yoksa hiçbir şey gizlenmez, rakamlar baştan doğru görünür. */
+(function () {
+  var kok = document.documentElement;
+  if (!('IntersectionObserver' in window)) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  // Belirecek öğeler: [seçici, grup içinde sıralı gecikme]
+  var GRUP = [
+    ['.k-kisa li', 1], ['.kh-kisayol li', 1], ['.k-bas', 0], ['.kh-bas-satir', 0], ['.km-bas-satir', 0],
+    ['.k-holep', 0], ['.kh-one', 0], ['.k-alanlar > li', 1], ['.kh-kartlar > li', 1],
+    ['.k-ozg-sol', 0], ['.k-zaman-kutu', 0], ['.k-akad', 0], ['.kh-oz-sol', 0],
+    ['.k-yazi-izgara > .k-yazi', 1], ['.k-ilet-izgara > *', 1], ['.kh-il-izgara > *', 1],
+    ['.k3-kat-bas', 0], ['.kh-yayin > li', 1], ['.kh-uyelik > li', 1], ['.kh-video > li', 1]
+  ];
+  var hedef = [];
+  GRUP.forEach(function (g) {
+    var liste = document.querySelectorAll('main ' + g[0]);
+    for (var i = 0; i < liste.length; i++) {
+      var o = liste[i];
+      if (o.classList.contains('k-gor')) continue;
+      // uzun listelerde gecikme en çok 6 adım
+      if (g[1]) { var kardes = Array.prototype.indexOf.call(o.parentNode.children, o); o.style.setProperty('--k-sira', String(kardes % 6)); }
+      o.classList.add('k-gor');
+      hedef.push(o);
+    }
+  });
+  // Zaman çizgileri ve metrik grupları: kendi animasyonları
+  var cizgi = document.querySelectorAll('main .k-zaman, main .kh-cizelge');
+  for (var c = 0; c < cizgi.length; c++) {
+    var li = cizgi[c].children;
+    for (var j = 0; j < li.length; j++) li[j].style.setProperty('--k-sira', String(j));
+    hedef.push(cizgi[c]);
+  }
+  var metrik = document.querySelectorAll('main .k-metrik, main .kh-metrik');
+  for (var m = 0; m < metrik.length; m++) hedef.push(metrik[m]);
+  var ozg = document.querySelector('main .k-ozg');
+  if (ozg) hedef.push(ozg);
+
+  // Sayaç: 0'dan son değere, ease-out; biçim (nokta, ek) korunur
+  function say(el) {
+    var metin = el.getAttribute('data-k-son') || el.textContent;
+    var es = metin.match(/^(\D*)(\d[\d.]*)(.*)$/);
+    if (!es) return;
+    var son = parseInt(es[2].replace(/\./g, ''), 10);
+    if (!(son > 0)) return;
+    var noktali = es[2].indexOf('.') > -1;
+    var bicim = function (n) { return es[1] + (noktali ? n.toLocaleString('tr-TR') : String(n)) + es[3]; };
+    var sure = Math.min(1600, 1200 + son * 2);
+    var bas = null;
+    el.setAttribute('aria-label', metin);
+    var adim = function (t) {
+      if (bas === null) bas = t;
+      var p = Math.min(1, (t - bas) / sure);
+      var e = 1 - Math.pow(1 - p, 3);
+      el.textContent = bicim(Math.round(son * e));
+      if (p < 1) requestAnimationFrame(adim); else { el.textContent = metin; el.removeAttribute('aria-label'); }
+    };
+    requestAnimationFrame(adim);
+  }
+  // Görünene kadar 0 gösterilir (son değer data-k-son'da; ekran okuyucu için aria-label)
+  var sayaclar = document.querySelectorAll('main [data-k-say]');
+  for (var k = 0; k < sayaclar.length; k++) {
+    var sm = sayaclar[k].textContent.match(/^(\D*)(\d[\d.]*)(.*)$/);
+    if (!sm) continue;
+    sayaclar[k].style.minWidth = sayaclar[k].offsetWidth + 'px';
+    sayaclar[k].setAttribute('data-k-son', sayaclar[k].textContent);
+    sayaclar[k].textContent = sm[1] + '0' + sm[3];
+  }
+
+  var io = new IntersectionObserver(function (girdiler) {
+    girdiler.forEach(function (g) {
+      if (!g.isIntersecting) return;
+      var el = g.target;
+      el.classList.add('k-gorundu');
+      io.unobserve(el);
+      if (el.matches('.k-metrik, .kh-metrik')) {
+        var sayilar = el.querySelectorAll('[data-k-say]');
+        for (var s = 0; s < sayilar.length; s++) say(sayilar[s]);
+      }
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+
+  kok.classList.add('k-js');
+  hedef.forEach(function (el) { io.observe(el); });
+
+  // Güvenlik: yazdırma ya da çapaya atlama gibi durumlarda gizli kalan olmasın
+  window.addEventListener('beforeprint', function () {
+    hedef.forEach(function (el) { el.classList.add('k-gorundu'); });
+    for (var q = 0; q < sayaclar.length; q++) if (sayaclar[q].getAttribute('data-k-son')) sayaclar[q].textContent = sayaclar[q].getAttribute('data-k-son');
+  });
+})();
