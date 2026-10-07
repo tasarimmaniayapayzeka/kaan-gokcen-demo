@@ -346,6 +346,78 @@
 })();
 
 ;
+/* devam.js */
+/* "Devamını okuyun": uzun metin kabı ([data-devam]) dar ekranda kısaltılır, hemen ardındaki düğme ([data-devam-dg]) açar/kapatır.
+   7 Ekim 2026, kullanıcı (Hakkında, mobil): "yazı uzun, buraya az yazı koyup fazlasını açılan akordiyon mu yapsak".
+   Metnin tamamı sayfada durur (arama motoru okur); betik çalışmazsa metin açık kalır, düğme gizli kalır.
+   data-devam="767": hangi genişliğe kadar kısaltılacağı (px). Kısaltılmış yükseklik ve görünüm temanın CSS'inde (.devam-kapali). */
+(function () {
+  var d = document;
+  var kaplar = [].slice.call(d.querySelectorAll('[data-devam]'));
+  if (!kaplar.length) return;
+  var hareket = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  kaplar.forEach(function (kap, n) {
+    var dg = kap.nextElementSibling;
+    if (!dg || !dg.hasAttribute('data-devam-dg')) return;
+    if (!kap.id) kap.id = 'devam-' + (n + 1);
+    dg.setAttribute('aria-controls', kap.id);
+    var yazi = dg.querySelector('[data-devam-yazi]') || dg;
+    var acYazi = dg.getAttribute('data-ac') || 'Devamını okuyun';
+    var kapaYazi = dg.getAttribute('data-kapa') || 'Daha az göster';
+    var mq = window.matchMedia('(max-width: ' + (parseInt(kap.getAttribute('data-devam'), 10) || 767) + 'px)');
+    var acik = false;
+
+    function durum() {
+      kap.style.maxHeight = '';
+      if (!mq.matches) { kap.classList.remove('devam-kapali'); dg.hidden = true; return; }
+      kap.classList.toggle('devam-kapali', !acik);
+      // Kısa metinde düğmeye gerek yok
+      var uzun = acik || kap.scrollHeight > kap.clientHeight + 24;
+      if (!uzun) kap.classList.remove('devam-kapali');
+      dg.hidden = !uzun;
+      dg.setAttribute('aria-expanded', acik ? 'true' : 'false');
+      yazi.textContent = acik ? kapaYazi : acYazi;
+    }
+
+    function ac() {
+      if (acik) return;
+      acik = true;
+      var bas = kap.clientHeight;
+      kap.classList.remove('devam-kapali');
+      if (hareket) {
+        var son = kap.scrollHeight;
+        kap.style.maxHeight = bas + 'px';
+        kap.offsetHeight; // yeniden yerleşim
+        kap.style.transition = 'max-height .45s ease';
+        kap.style.maxHeight = son + 'px';
+        setTimeout(function () { kap.style.transition = ''; kap.style.maxHeight = ''; }, 480);
+      }
+      dg.setAttribute('aria-expanded', 'true');
+      yazi.textContent = kapaYazi;
+    }
+
+    function kapa() {
+      // Düğme parmağın/imlecin altında kalsın: kısalma kadar sayfa yukarı kaydırılır
+      var once = dg.getBoundingClientRect().top;
+      acik = false;
+      durum();
+      var fark = dg.getBoundingClientRect().top - once;
+      if (fark) window.scrollTo({ top: window.scrollY + fark, behavior: 'instant' });
+    }
+
+    dg.addEventListener('click', function () { if (acik) kapa(); else ac(); });
+    // Kaba ya da içine götüren çapalar (ör. "Detaylı özgeçmiş") metni açar
+    [].forEach.call(d.querySelectorAll('a[href^="#"]'), function (a) {
+      var h = d.getElementById(decodeURIComponent(a.getAttribute('href').slice(1)));
+      if (h && (h === kap || h.contains(kap))) a.addEventListener('click', function () { if (mq.matches) ac(); });
+    });
+    if (mq.addEventListener) mq.addEventListener('change', durum); else if (mq.addListener) mq.addListener(durum);
+    window.addEventListener('load', durum);
+    durum();
+  });
+})();
+
+;
 /* sekme-izle.js */
 /* Sekme çubuğu ve "Bu sayfada" listeleri: etkin bölümün işaretlenmesi ve çapaya kaydırma. Bütün temalarda ortak (render.js her pakete ekler).
    7 Ekim 2026, kullanıcı: "sekme kayma var, her iç sayfada kontrol et". Eski IntersectionObserver kodu yalnız başlık ekranın üst bandına
